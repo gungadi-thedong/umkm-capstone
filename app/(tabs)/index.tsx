@@ -11,6 +11,7 @@ export default function HomeScreen() {
     // Handle login logic here
     if (email && password) {
       alert('Login berhasil!');
+      router.push('../menu/koleksi-barang');
       // Redirect to dashboard or main screen
     } else {
       alert('Silakan isi email dan password');
