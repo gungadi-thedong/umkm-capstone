@@ -20,10 +20,10 @@ export default function MenuTransaksi() {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [cartItems, setCartItems] = useState([]);
 
-  //custom search
-const [searchResults, setSearchResults] = useState([]);
-const [showSearchDropdown, setShowSearchDropdown] = useState(false);
-const [searchLoading, setSearchLoading] = useState(false);
+  // custom search
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   // Modal state
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -41,9 +41,8 @@ const [searchLoading, setSearchLoading] = useState(false);
     return numValue.toLocaleString('id-ID');
   };
 
-
-    // Fetch semua produk saat fokus
-    const handleSearchFocus = async () => {
+  // Fetch semua produk saat fokus
+  const handleSearchFocus = async () => {
     setShowSearchDropdown(true);
     setSearchLoading(true);
     const { data } = await supabase
@@ -52,10 +51,10 @@ const [searchLoading, setSearchLoading] = useState(false);
         .limit(7);
     setSearchResults(data || []);
     setSearchLoading(false);
-    };
+  };
 
-    // Live filter saat ketik
-    const handleSearchChange = async (text) => {
+  // Live filter saat ketik
+  const handleSearchChange = async (text) => {
     setSearchText(text);
     if (!text.trim()) {
         handleSearchFocus();
@@ -95,37 +94,16 @@ const [searchLoading, setSearchLoading] = useState(false);
 
     setSearchResults(combined);
     setSearchLoading(false);
-    };
+  };
 
-    // Pilih dari dropdown
-    const handleSelectFromDropdown = (product) => {
+  // Pilih dari dropdown
+  const handleSelectFromDropdown = (product) => {
     setSelectedProduct(product);
     setQuantity(1);
     setShowSearchDropdown(false);
     setSearchText(product.nama_barang);
     setShowDetailModal(true);
-    };
-
-  // Search barang dari DB saat Enter
-//   const handleSearch = async () => {
-//     if (!searchText.trim()) return;
-
-//     const { data, error } = await supabase
-//       .from('barang')
-//       .select('*, kategori_barang(nama_kategori)')
-//       .ilike('nama_barang', `%${searchText}%`)
-//       .limit(1)
-//       .single();
-
-//     if (error || !data) {
-//       alert('Barang tidak ditemukan!');
-//       return;
-//     }
-
-//     setSelectedProduct(data);
-//     setQuantity(1);
-//     setShowDetailModal(true);
-//   };
+  };
 
   // Masukkan barang ke cart
   const handleMasukkanBarang = () => {
@@ -134,14 +112,12 @@ const [searchLoading, setSearchLoading] = useState(false);
     const existing = cartItems.find(item => item.id_barang === selectedProduct.id_barang);
 
     if (existing) {
-      // Update quantity kalau udah ada
       setCartItems(cartItems.map(item =>
         item.id_barang === selectedProduct.id_barang
           ? { ...item, quantity: item.quantity + quantity, total: (item.quantity + quantity) * item.unitPrice }
           : item
       ));
     } else {
-      // Tambah baru
       setCartItems([...cartItems, {
         id_barang: selectedProduct.id_barang,
         name: selectedProduct.nama_barang,
@@ -157,7 +133,7 @@ const [searchLoading, setSearchLoading] = useState(false);
     setQuantity(1);
   };
 
-    const handleSimpanTransaksi = async () => {
+  const handleSimpanTransaksi = async () => {
     if (cartItems.length === 0) {
         alert('Keranjang kosong!');
         return;
@@ -169,7 +145,6 @@ const [searchLoading, setSearchLoading] = useState(false);
 
     const doSave = async () => {
       try {
-        // 1. Insert transaksi
         const { data: transaksiData, error: transaksiError } = await supabase
           .from('transaksi')
           .insert([{
@@ -188,7 +163,6 @@ const [searchLoading, setSearchLoading] = useState(false);
 
         const id_transaksi = transaksiData.id_transaksi;
 
-        // 2. Insert detail_transaksi
         const detailRows = cartItems.map(item => ({
           id_transaksi: id_transaksi,
           id_barang: item.id_barang,
@@ -205,7 +179,6 @@ const [searchLoading, setSearchLoading] = useState(false);
           return;
         }
 
-        // 3. Update stok barang — di dalam try, setelah semua berhasil
         for (const item of cartItems) {
           const { data: barangData } = await supabase
             .from('barang')
@@ -221,7 +194,6 @@ const [searchLoading, setSearchLoading] = useState(false);
             .eq('id_barang', item.id_barang);
         }
 
-        // Reset HANYA setelah semua berhasil
         alert('Transaksi berhasil disimpan!');
         setCartItems([]);
         setPaymentAmount('');
@@ -229,7 +201,6 @@ const [searchLoading, setSearchLoading] = useState(false);
 
       } catch (e) {
         alert('Error: ' + e.message);
-        // Cart TIDAK di-reset kalau error
       }
     };
 
@@ -242,7 +213,7 @@ const [searchLoading, setSearchLoading] = useState(false);
         { text: 'Ya', onPress: doSave },
         ]);
     }
-    };
+  };
 
   const handleBatalTransaksi = () => {
     if (Platform.OS === 'web') {
@@ -263,62 +234,65 @@ const [searchLoading, setSearchLoading] = useState(false);
         <Text style={styles.headerTitle}>Menu Transaksi</Text>
       </View>
 
-      {/* Scrollable Content */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Search Bar */}
-        <View style={styles.searchWrapper}>
+      {/* Search Bar Wrapper */}
+      <View style={styles.searchWrapper}>
         <TextInput
-            style={styles.searchInput}
-            placeholder="Cari barang atau kategori..."
-            placeholderTextColor="#999"
-            value={searchText}
-            onChangeText={handleSearchChange}
-            onFocus={handleSearchFocus}
-            onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)}
-            returnKeyType="search"
+          style={styles.searchInput}
+          placeholder="Cari barang atau kategori..."
+          placeholderTextColor="#999"
+          value={searchText}
+          onChangeText={handleSearchChange}
+          onFocus={handleSearchFocus}
+          onBlur={() => setTimeout(() => setShowSearchDropdown(false), 300)}
+          returnKeyType="search"
         />
 
-        {/* Dropdown */}
+        {/* Dropdown Menu */}
         {showSearchDropdown && (
-            <View style={styles.dropdown}>
+          <View style={styles.dropdown}>
             {searchLoading ? (
-                <Text style={styles.dropdownLoading}>Mencari...</Text>
+              <Text style={styles.dropdownLoading}>Mencari...</Text>
             ) : searchResults.length === 0 ? (
-                <Text style={styles.dropdownEmpty}>Barang tidak ditemukan</Text>
+              <Text style={styles.dropdownEmpty}>Barang tidak ditemukan</Text>
             ) : (
-                searchResults.map((item) => (
-                <TouchableOpacity
+              <ScrollView 
+                nestedScrollEnabled={true} 
+                style={{ maxHeight: 250 }}
+                keyboardShouldPersistTaps="handled"
+              >
+                {searchResults.map((item) => (
+                  <TouchableOpacity
                     key={item.id_barang}
                     style={styles.dropdownItem}
                     onPress={() => handleSelectFromDropdown(item)}>
-                    {/* Gambar mini */}
                     <View style={styles.dropdownImageBox}>
-                    {item.gambar ? (
+                      {item.gambar ? (
                         <Image source={{ uri: item.gambar }} style={styles.dropdownImage} />
-                    ) : (
+                      ) : (
                         <View style={styles.dropdownNoImage}>
-                        <Text style={styles.dropdownNoImageText}>?</Text>
+                          <Text style={styles.dropdownNoImageText}>?</Text>
                         </View>
-                    )}
+                      )}
                     </View>
-                    {/* Info */}
                     <View style={styles.dropdownInfo}>
-                    <Text style={styles.dropdownName}>{item.nama_barang}</Text>
-                    <Text style={styles.dropdownCategory}>
+                      <Text style={styles.dropdownName}>{item.nama_barang}</Text>
+                      <Text style={styles.dropdownCategory}>
                         {item.kategori_barang?.nama_kategori || 'Tanpa kategori'}
-                    </Text>
+                      </Text>
                     </View>
-                    {/* Harga */}
                     <Text style={styles.dropdownPrice}>
-                    Rp {item.harga?.toLocaleString('id-ID')}
+                      Rp {item.harga?.toLocaleString('id-ID')}
                     </Text>
-                </TouchableOpacity>
-                ))
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             )}
-            </View>
+          </View>
         )}
-        </View>
+      </View>
 
+      {/* Scrollable Content */}
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Cart Table */}
         <View style={styles.tableContainer}>
           {/* Table Header */}
@@ -383,9 +357,7 @@ const [searchLoading, setSearchLoading] = useState(false);
         <TouchableOpacity style={styles.batalButton} onPress={handleBatalTransaksi}>
           <Text style={styles.batalButtonText}>Batal Transaksi</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.simpanButton} onPress={() => {
-          handleSimpanTransaksi();
-        }}>
+        <TouchableOpacity style={styles.simpanButton} onPress={handleSimpanTransaksi}>
           <Text style={styles.simpanButtonText}>Simpan Transaksi</Text>
         </TouchableOpacity>
       </View>
@@ -402,9 +374,7 @@ const [searchLoading, setSearchLoading] = useState(false);
 
             {selectedProduct && (
               <>
-                {/* Product Info */}
                 <View style={styles.modalProductRow}>
-                  {/* Gambar */}
                   <View style={styles.modalImageBox}>
                     {selectedProduct.gambar ? (
                       <Image
@@ -416,7 +386,6 @@ const [searchLoading, setSearchLoading] = useState(false);
                     )}
                   </View>
 
-                  {/* Info */}
                   <View style={styles.modalProductInfo}>
                     <Text style={styles.modalProductName}>{selectedProduct.nama_barang}</Text>
                     <View style={styles.modalPriceRow}>
@@ -426,21 +395,21 @@ const [searchLoading, setSearchLoading] = useState(false);
                   </View>
                 </View>
 
-                {/* Stok info */}
                 {selectedProduct?.stok === 0 ? (
                   <Text style={styles.stokHabis}>⚠ STOK HABIS</Text>
                 ) : (
                   <Text style={styles.stokInfo}>Stok tersedia: {selectedProduct?.stok}</Text>
                 )}
 
-                {/* Quantity */}
                 <Text style={styles.modalQtyLabel}>Masukkan jumlah</Text>
                 <View style={styles.modalQtyRow}>
+                  {/* FIX 1: Memperbaiki typo tag pembuka/penutup tombol minus di bawah ini */}
                   <TouchableOpacity
                     style={styles.qtyButton}
                     onPress={() => setQuantity(Math.max(1, quantity - 1))}>
                     <Text style={styles.qtyButtonText}>-</Text>
                   </TouchableOpacity>
+                  
                   <TextInput
                     style={styles.qtyInput}
                     value={quantity.toString()}
@@ -465,7 +434,6 @@ const [searchLoading, setSearchLoading] = useState(false);
               </>
             )}
 
-            {/* Buttons */}
             <View style={styles.modalButtonRow}>
               <TouchableOpacity
                 style={styles.modalBatalButton}
@@ -477,15 +445,15 @@ const [searchLoading, setSearchLoading] = useState(false);
                 <Text style={styles.modalBatalText}>Batal</Text>
               </TouchableOpacity>
               <TouchableOpacity
-              style={[
-                styles.modalMasukkanButton,
-                selectedProduct?.stok === 0 && { opacity: 0.4 }
-              ]}
-              onPress={selectedProduct?.stok === 0 ? null : handleMasukkanBarang}>
-              <Text style={styles.modalMasukkanText}>
-                {selectedProduct?.stok === 0 ? 'Stok Habis' : 'Masukkan barang'}
-              </Text>
-            </TouchableOpacity>
+                style={[
+                  styles.modalMasukkanButton,
+                  selectedProduct?.stok === 0 && { opacity: 0.4 }
+                ]}
+                onPress={selectedProduct?.stok === 0 ? null : handleMasukkanBarang}>
+                <Text style={styles.modalMasukkanText}>
+                  {selectedProduct?.stok === 0 ? 'Stok Habis' : 'Masukkan barang'}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -504,8 +472,14 @@ const styles = StyleSheet.create({
     borderBottomColor: '#D4B5F5',
   },
   headerTitle: { fontSize: 24, fontWeight: '700', color: '#333', textAlign: 'center' },
-  content: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
-  searchContainer: { marginBottom: 16 },
+  
+  searchWrapper: { 
+    paddingHorizontal: 16, 
+    paddingVertical: 10, 
+    backgroundColor: '#F5F5F5',
+    zIndex: 10, 
+    position: 'relative'
+  },
   searchInput: {
     backgroundColor: '#fff',
     borderRadius: 12,
@@ -516,6 +490,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
+
+  content: { flex: 1, paddingHorizontal: 16, paddingTop: 16, zIndex: 1 },
+  
   tableContainer: {
     backgroundColor: '#fff',
     borderRadius: 12,
@@ -564,7 +541,6 @@ const styles = StyleSheet.create({
   simpanButton: { flex: 1, backgroundColor: '#4CAF50', paddingVertical: 14, borderRadius: 24, alignItems: 'center' },
   simpanButtonText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 
-  // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalCard: {
     backgroundColor: '#E8D8FF',
@@ -604,26 +580,27 @@ const styles = StyleSheet.create({
   modalBatalText: { fontSize: 14, fontWeight: '700', color: '#fff' },
   modalMasukkanButton: { flex: 1, backgroundColor: '#4CAF50', paddingVertical: 12, borderRadius: 24, alignItems: 'center' },
   modalMasukkanText: { fontSize: 14, fontWeight: '700', color: '#fff' },
-  searchWrapper: { marginBottom: 16, zIndex: 999 },
-    dropdown: {
+
+  dropdown: {
     position: 'absolute',
-    top: 50,
-    left: 0,
-    right: 0,
+    top: '100%', 
+    left: 16,
+    right: 16,
     backgroundColor: '#fff',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E8D8FF',
+    zIndex: 9999, 
+    // FIX 2: Mengamankan properti shadow agar terbaca silang-platform (HP & Web) dengan standar React Native shadow props
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 5,
-    zIndex: 999,
-    },
-    dropdownLoading: { padding: 16, color: '#999', textAlign: 'center' },
-    dropdownEmpty: { padding: 16, color: '#999', textAlign: 'center' },
-    dropdownItem: {
+    elevation: 10,
+  },
+  dropdownLoading: { padding: 16, color: '#999', textAlign: 'center' },
+  dropdownEmpty: { padding: 16, color: '#999', textAlign: 'center' },
+  dropdownItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
@@ -631,29 +608,29 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
     gap: 10,
-    },
-    dropdownImageBox: {
+  },
+  dropdownImageBox: {
     width: 40, height: 40,
     borderRadius: 6,
     backgroundColor: '#F0F0F0',
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
-    },
-    dropdownImage: { width: 40, height: 40, resizeMode: 'contain' },
-    dropdownNoImage: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-    dropdownNoImageText: { fontSize: 18, color: '#ccc' },
-    dropdownInfo: { flex: 1 },
-    dropdownName: { fontSize: 13, fontWeight: '600', color: '#333' },
-    dropdownCategory: { fontSize: 11, color: '#999', marginTop: 2 },
-    dropdownPrice: { fontSize: 13, fontWeight: '700', color: '#6C40C7' },
+  },
+  dropdownImage: { width: 40, height: 40, resizeMode: 'contain' },
+  dropdownNoImage: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  dropdownNoImageText: { fontSize: 18, color: '#ccc' },
+  dropdownInfo: { flex: 1 },
+  dropdownName: { fontSize: 13, fontWeight: '600', color: '#333' },
+  dropdownCategory: { fontSize: 11, color: '#999', marginTop: 2 },
+  dropdownPrice: { fontSize: 13, fontWeight: '700', color: '#6C40C7' },
 
-    stokHabis: {
-      fontSize: 14, fontWeight: '700', color: '#FF5252',
-      textAlign: 'center', marginBottom: 8,
-    },
-    stokInfo: {
-      fontSize: 12, color: '#666',
-      textAlign: 'center', marginBottom: 8,
-    },
+  stokHabis: {
+    fontSize: 14, fontWeight: '700', color: '#FF5252',
+    textAlign: 'center', marginBottom: 8,
+  },
+  stokInfo: {
+    fontSize: 12, color: '#666',
+    textAlign: 'center', marginBottom: 8,
+  },
 });

@@ -5,12 +5,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import {
-  runApriori,
-  getTopItems,
-  getUnsoldItems,
-  getMonthlyComparison,
-} from './algo-apriori';
+import { runApriori, getTopItems, getUnsoldItems, getMonthlyComparison } from '@/lib/algo-apriori';
 
 const formatIDR = (value) => {
   if (!value) return 'Rp 0';
