@@ -168,55 +168,69 @@ const [searchLoading, setSearchLoading] = useState(false);
     }
 
     const doSave = async () => {
-        try {
-        // 1. Insert ke transaksi dulu
+      try {
+        // 1. Insert transaksi
         const { data: transaksiData, error: transaksiError } = await supabase
-            .from('transaksi')
-            .insert([{
+          .from('transaksi')
+          .insert([{
             jumlah_barang: totalItems,
             total_penjualan: totalPrice,
             jumlah_bayar: paymentNum,
             kembalian: kembalian,
-            }])
-            .select()
-            .single();
+          }])
+          .select()
+          .single();
 
         if (transaksiError) {
-            alert('Gagal simpan transaksi: ' + transaksiError.message);
-            return;
+          alert('Gagal simpan transaksi: ' + transaksiError.message);
+          return;
         }
 
         const id_transaksi = transaksiData.id_transaksi;
-        console.log('Transaksi created, id:', id_transaksi);
 
-        // 2. Insert detail_transaksi per item
+        // 2. Insert detail_transaksi
         const detailRows = cartItems.map(item => ({
-            id_transaksi: id_transaksi,
-            id_barang: item.id_barang,
-            jumlah_beli: item.quantity,
-            total_beli: item.total,
+          id_transaksi: id_transaksi,
+          id_barang: item.id_barang,
+          jumlah_beli: item.quantity,
+          total_beli: item.total,
         }));
 
         const { error: detailError } = await supabase
-            .from('detail_transaksi')
-            .insert(detailRows);
+          .from('detail_transaksi')
+          .insert(detailRows);
 
         if (detailError) {
-            alert('Transaksi tersimpan tapi detail gagal: ' + detailError.message);
-            return;
+          alert('Transaksi tersimpan tapi detail gagal: ' + detailError.message);
+          return;
         }
 
-        console.log('Detail transaksi inserted:', detailRows.length, 'rows');
-        alert('Transaksi berhasil disimpan!');
+        // 3. Update stok barang — di dalam try, setelah semua berhasil
+        for (const item of cartItems) {
+          const { data: barangData } = await supabase
+            .from('barang')
+            .select('stok')
+            .eq('id_barang', item.id_barang)
+            .single();
 
-        // Reset
+          const stokBaru = Math.max(0, (barangData?.stok || 0) - item.quantity);
+
+          await supabase
+            .from('barang')
+            .update({ stok: stokBaru })
+            .eq('id_barang', item.id_barang);
+        }
+
+        // Reset HANYA setelah semua berhasil
+        alert('Transaksi berhasil disimpan!');
         setCartItems([]);
         setPaymentAmount('');
         setSearchText('');
 
-        } catch (e) {
+      } catch (e) {
         alert('Error: ' + e.message);
-        }
+        // Cart TIDAK di-reset kalau error
+      }
     };
 
     if (Platform.OS === 'web') {
@@ -369,7 +383,9 @@ const [searchLoading, setSearchLoading] = useState(false);
         <TouchableOpacity style={styles.batalButton} onPress={handleBatalTransaksi}>
           <Text style={styles.batalButtonText}>Batal Transaksi</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.simpanButton} onPress={handleSimpanTransaksi}>
+        <TouchableOpacity style={styles.simpanButton} onPress={() => {
+          handleSimpanTransaksi();
+        }}>
           <Text style={styles.simpanButtonText}>Simpan Transaksi</Text>
         </TouchableOpacity>
       </View>
@@ -410,6 +426,13 @@ const [searchLoading, setSearchLoading] = useState(false);
                   </View>
                 </View>
 
+                {/* Stok info */}
+                {selectedProduct?.stok === 0 ? (
+                  <Text style={styles.stokHabis}>⚠ STOK HABIS</Text>
+                ) : (
+                  <Text style={styles.stokInfo}>Stok tersedia: {selectedProduct?.stok}</Text>
+                )}
+
                 {/* Quantity */}
                 <Text style={styles.modalQtyLabel}>Masukkan jumlah</Text>
                 <View style={styles.modalQtyRow}>
@@ -421,13 +444,21 @@ const [searchLoading, setSearchLoading] = useState(false);
                   <TextInput
                     style={styles.qtyInput}
                     value={quantity.toString()}
-                    onChangeText={(v) => setQuantity(parseInt(v.replace(/\D/g, '')) || 1)}
+                    onChangeText={(v) => {
+                      const num = parseInt(v.replace(/\D/g, '')) || 1;
+                      const maxQty = selectedProduct?.stok || 0;
+                      setQuantity(Math.min(num, maxQty === 0 ? 0 : maxQty));
+                    }}
                     keyboardType="numeric"
                     textAlign="center"
+                    editable={selectedProduct?.stok > 0}
                   />
                   <TouchableOpacity
                     style={styles.qtyButton}
-                    onPress={() => setQuantity(quantity + 1)}>
+                    onPress={() => {
+                      const maxQty = selectedProduct?.stok || 0;
+                      if (quantity < maxQty) setQuantity(quantity + 1);
+                    }}>
                     <Text style={styles.qtyButtonText}>+</Text>
                   </TouchableOpacity>
                 </View>
@@ -446,10 +477,15 @@ const [searchLoading, setSearchLoading] = useState(false);
                 <Text style={styles.modalBatalText}>Batal</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.modalMasukkanButton}
-                onPress={handleMasukkanBarang}>
-                <Text style={styles.modalMasukkanText}>Masukkan barang</Text>
-              </TouchableOpacity>
+              style={[
+                styles.modalMasukkanButton,
+                selectedProduct?.stok === 0 && { opacity: 0.4 }
+              ]}
+              onPress={selectedProduct?.stok === 0 ? null : handleMasukkanBarang}>
+              <Text style={styles.modalMasukkanText}>
+                {selectedProduct?.stok === 0 ? 'Stok Habis' : 'Masukkan barang'}
+              </Text>
+            </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -611,4 +647,13 @@ const styles = StyleSheet.create({
     dropdownName: { fontSize: 13, fontWeight: '600', color: '#333' },
     dropdownCategory: { fontSize: 11, color: '#999', marginTop: 2 },
     dropdownPrice: { fontSize: 13, fontWeight: '700', color: '#6C40C7' },
+
+    stokHabis: {
+      fontSize: 14, fontWeight: '700', color: '#FF5252',
+      textAlign: 'center', marginBottom: 8,
+    },
+    stokInfo: {
+      fontSize: 12, color: '#666',
+      textAlign: 'center', marginBottom: 8,
+    },
 });
