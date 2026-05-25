@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "apriori",
-    "slug": "apriori",
+    "slug": "umkm-apriori",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -12,6 +12,8 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.gungadithedong.umkmaprioriexpodev",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#6C40C7",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
@@ -41,6 +43,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "95c013c0-f8eb-401f-aede-5dcbaf7e6fa1"
+      }
+    },
+    "owner": "gung_adi_the_dong"
   }
 }
