@@ -1,11 +1,15 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  ActivityIndicator, TouchableOpacity,
+  ActivityIndicator, TouchableOpacity, Platform
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { runApriori, getTopItems, getUnsoldItems, getMonthlyComparison } from '@/lib/algo-apriori';
+
+// 1. IMPORT LIBRARY EXPO PRINT & SHARING DI SINI
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 
 const formatIDR = (value) => {
   if (!value) return 'Rp 0';
@@ -36,68 +40,53 @@ export default function Pendapatan() {
   const loadAll = async () => {
     setIsLoading(true);
     try {
-      // 1. Fetch semua transaksi
       const { data: transaksiData } = await supabase
         .from('transaksi')
         .select('*')
         .order('created_at', { ascending: false });
 
-      // 2. Fetch detail transaksi bulan ini
       const now = new Date();
       const firstDayThisMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
       const { data: detailBulanIni } = await supabase
         .from('detail_transaksi')
         .select('*, barang(nama_barang, gambar)')
-        .gte('id_transaksi', 0); // ambil semua dulu, filter di bawah
+        .gte('id_transaksi', 0);
 
-      // 3. Fetch semua barang
       const { data: allBarang } = await supabase
         .from('barang')
         .select('id_barang, nama_barang, stok');
 
-      // 4. Fetch transaksi bulan ini buat apriori
       const { data: transaksiThisMonth } = await supabase
         .from('transaksi')
         .select('id_transaksi, created_at')
         .gte('created_at', firstDayThisMonth);
 
       const thisMonthIds = new Set((transaksiThisMonth || []).map(t => t.id_transaksi));
+      const detailThisMonth = (detailBulanIni || []).filter(d => thisMonthIds.has(d.id_transaksi));
 
-      // Filter detail bulan ini
-      const detailThisMonth = (detailBulanIni || []).filter(d =>
-        thisMonthIds.has(d.id_transaksi)
-      );
-
-      // 5. Build item name map
       const nameMap = {};
       (allBarang || []).forEach(b => {
         nameMap[b.id_barang] = b.nama_barang;
       });
       setItemNameMap(nameMap);
 
-      // 6. Monthly comparison
       const monthlyData = getMonthlyComparison(transaksiData || []);
       setMonthly(monthlyData);
 
-      // Total revenue all time
       const total = (transaksiData || []).reduce((s, t) => s + (t.total_penjualan || 0), 0);
       setTotalRevenue(total);
 
-      // 7. Top & bottom items bulan ini
       const top = getTopItems(detailThisMonth, 10);
       setTopItems(top);
 
-      // Bottom 10 (sold but least)
       const allSoldThisMonth = getTopItems(detailThisMonth, 999);
       setBottomItems(allSoldThisMonth.slice(-10).reverse());
 
-      // 8. Unsold items bulan ini
       const soldIds = detailThisMonth.map(d => d.id_barang);
       const unsold = getUnsoldItems(allBarang || [], soldIds);
       setUnsoldItems(unsold);
 
-      // 9. Apriori - group detail by id_transaksi
       const transactionGroups = {};
       detailThisMonth.forEach(d => {
         if (!transactionGroups[d.id_transaksi]) {
@@ -107,13 +96,151 @@ export default function Pendapatan() {
       });
 
       const transactions = Object.values(transactionGroups);
-      const apriori = runApriori(transactions, 2, 3); // min 2x, max 3 items
-      setAprioriResults(apriori.slice(0, 15)); // top 15 associations
+      const apriori = runApriori(transactions, 2, 3);
+      setAprioriResults(apriori.slice(0, 15));
 
     } catch (e) {
       console.error('Error loading pendapatan:', e);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // 2. FUNGSI SAKTI UNTUK GENERATE DAN DOWNLOAD PDF DI HP
+  const handleDownloadPDF = async () => {
+    const currentMonthName = MONTHS_ID[new Date().getMonth()];
+    const currentYear = new Date().getFullYear();
+
+    // Mapping Data Looping Supabase ke dalam bentuk baris Tabel HTML
+    const topItemsRows = topItems.map((item, index) => `
+      <tr style="border-bottom: 1px solid #ddd;">
+        <td style="padding: 10px; text-align: center;"><b>${index + 1}</b></td>
+        <td style="padding: 10px;">${item.nama_barang}</td>
+        <td style="padding: 10px; font-weight: bold; color: #6C40C7;">${item.total_terjual} Pcs</td>
+      </tr>
+    `).join('');
+
+    const bottomItemsRows = bottomItems.map((item, index) => `
+      <tr style="border-bottom: 1px solid #ddd;">
+        <td style="padding: 10px; text-align: center;"><b>${index + 1}</b></td>
+        <td style="padding: 10px;">${item.nama_barang}</td>
+        <td style="padding: 10px; font-weight: bold; color: #FF9800;">${item.total_terjual} Pcs</td>
+      </tr>
+    `).join('');
+
+    const aprioriRows = aprioriResults.length === 0 
+      ? `<tr><td colspan="3" style="padding: 15px; text-align: center; color: #999;">Belum cukup data transaksi untuk pola bersamaan.</td></tr>`
+      : aprioriResults.map((result, index) => {
+          const comboNames = result.items.map(id => itemNameMap[id] || `Item #${id}`).join(' <b>+</b> ');
+          return `
+            <tr style="border-bottom: 1px solid #ddd;">
+              <td style="padding: 10px; text-align: center;"><b>${index + 1}</b></td>
+              <td style="padding: 10px;">${comboNames}</td>
+              <td style="padding: 10px; text-align: center; font-weight: bold; color: #6C40C7;">${result.support} Kali</td>
+            </tr>
+          `;
+        }).join('');
+
+    // Kode Struktur HTML Laporan Remade (Ramah Orang Tua Usia 40+)
+    const htmlContent = `
+        <html>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333; padding: 20px; line-height: 1.4; }
+              h1, h3 { text-align: center; margin: 0; }
+              h1 { font-size: 24px; color: #111; }
+              h3 { font-size: 16px; color: #666; margin-top: 5px; margin-bottom: 25px; }
+              h4 { color: #6C40C7; font-size: 16px; border-bottom: 2px solid #6C40C7; padding-bottom: 5px; margin-top: 20px; margin-bottom: 10px; }
+              table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px; }
+              th { background-color: #F2F2F2; padding: 10px; text-align: left; border-bottom: 2px solid #ddd; }
+              .tip { font-size: 12px; color: #666; font-style: italic; margin-top: -5px; margin-bottom: 10px; }
+            </style>
+          </head>
+          <body>
+            <h1>LAPORAN BULANAN PENJUALAN TOKO</h1>
+            <h3>Periode Laporan: ${currentMonthName} ${currentYear}</h3>
+            
+            <h4>1. RINGKASAN UTAMA TOKO</h4>
+            <table>
+              <tr style="border-bottom: 1px solid #ddd;">
+                <td style="padding: 12px; font-weight: bold; font-size: 15px;">💰 Total Pendapatan (Omzet)</td>
+                <td style="padding: 12px; color: #28a745; font-weight: bold; font-size: 16px;">${formatIDR(monthly?.thisMonthRevenue)}</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #ddd;">
+                <td style="padding: 12px; font-weight: bold;">📈 Produk Paling Laris</td>
+                <td style="padding: 12px;">${topItems[0]?.nama_barang || '-'}</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #ddd;">
+                <td style="padding: 12px; font-weight: bold;">📉 Produk Kurang Laku</td>
+                <td style="padding: 12px;">${bottomItems[0]?.nama_barang || '-'}</td>
+              </tr>
+            </table>
+
+            <h4>2. 10 BARANG PALING LAKU (TERLARIS) 🔥</h4>
+            <table>
+              <thead><tr><th style="width: 10%; text-align: center;">No</th><th>Nama Barang</th><th style="width: 30%;">Terjual</th></tr></thead>
+              <tbody>${topItemsRows}</tbody>
+            </table>
+
+            <h4>3. 10 BARANG KURANG LAKU 📉</h4>
+            <table>
+              <thead><tr><th style="width: 10%; text-align: center;">No</th><th>Nama Barang</th><th style="width: 30%;">Terjual</th></tr></thead>
+              <tbody>${bottomItemsRows}</tbody>
+            </table>
+
+            <h4>4. REKOMENDASI ATUR RAK TOKO (Hasil Analisis Apriori)</h4>
+            <p class="tip">*Petunjuk Praktis: Posisikan barang-barang di bawah ini secara berdekatan di rak toko Anda.</p>
+            <table>
+              <thead><tr><th style="width: 10%; text-align: center;">No</th><th>Kombinasi Produk 🤝</th><th style="width: 30%; text-align: center;">Sering di Nota</th></tr></thead>
+              <tbody>${aprioriRows}</tbody>
+            </table>
+          </body>
+        </html>
+      `;
+    try {
+      // 🌟 TRIK KHUSUS TESTING DI PC (BROWSER) 🌟
+      if (Platform.OS === 'web') {
+      //   // Opsi A: Langsung buka di Tab Baru (Paling direkomendasikan buat testing cepet)
+      //   const newWindow = window.open();
+      //   if (newWindow) {
+      //     newWindow.document.write(htmlContent);
+      //     newWindow.document.close();
+      //   }
+      //   return; // Stop di sini, jangan jalankan fungsi HP
+
+        // 🌟 TRIK KHUSUS TESTING DI PC (BROWSER) - SEKARANG DOWNLOAD .PDF ASLI 🌟
+        // 1. Buat elemen bungkus HTML sementara di browser
+        const element = document.createElement('div');
+        element.innerHTML = htmlContent;
+
+        // 2. Load script html2pdf secara dinamis dari internet
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+        
+        script.onload = () => {
+          // 3. Konfigurasi download PDF-nya
+          const options = {
+            margin:       0.5,
+            filename:     `Laporan-Penjualan-${currentMonthName}-${currentYear}.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2 }, // Biar teks tajam pas di-zoom
+            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+          };
+
+          // 4. Eksekusi download PDF langsung di PC tanpa pop-up print!
+          window.html2pdf().set(options).from(element).save();
+        };
+
+        document.head.appendChild(script);
+        return; // Stop, jangan jalankan fungsi internal HP
+      }
+
+      // 📱 PROSES UNTUK DI HP ASLI (Gak bakal terganggu)
+      const { uri } = await Print.printToFileAsync({ html: htmlContent });
+      await Sharing.shareAsync(uri, { dialogTitle: 'Simpan Laporan PDF' });
+    } catch (error) {
+      console.error("Gagal mendownload PDF:", error);
     }
   };
 
@@ -137,6 +264,11 @@ export default function Pendapatan() {
       <View style={styles.headerCard}>
         <Text style={styles.headerLabel}>TOTAL PENDAPATAN BULAN INI</Text>
         <Text style={styles.headerAmount}>{formatIDR(monthly?.thisMonthRevenue)}</Text>
+
+        {/* 3. INI TOMBOL DOWNLOAD BARU UNTUK VERSI MOBILE */}
+        <TouchableOpacity style={styles.downloadButton} onPress={handleDownloadPDF}>
+          <Text style={styles.downloadButtonText}>📥 Download Laporan (PDF)</Text>
+        </TouchableOpacity>
 
         {/* Perbandingan bulan lalu */}
         {monthly?.lastMonthRevenue > 0 && (
@@ -273,6 +405,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
   },
   loadingText: { marginTop: 12, color: '#666', fontSize: 14 },
+
+  // STYLE BARU UNTUK BUTTON DOWNLOAD PDF
+  downloadButton: {
+    backgroundColor: '#69F0AE',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  downloadButtonText: {
+    color: '#333',
+    fontSize: 14,
+    fontWeight: '800',
+  },
 
   // Header Card
   headerCard: {
