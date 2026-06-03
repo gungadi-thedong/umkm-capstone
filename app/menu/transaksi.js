@@ -341,39 +341,39 @@ export default function MenuTransaksi() {
             <Text style={styles.colValue}>{formatCurrency(totalPrice)}</Text>
           </View>
 
+          {/* BARIS TOTAL BAYAR (DIKEMBALIKAN KEDALAM BENTUK ROW BERSIH) */}
           <View style={styles.summaryRow}>
             <Text style={styles.colLabel}>Total Bayar</Text>
-            {/* Input Pembayaran Anda yang Sudah Ada */}
-              <TextInput
-                style={styles.paymentInput} // sesuaikan dengan nama style input Anda
-                keyboardType="numeric"
-                placeholder="Masukkan jumlah pembayaran..."
-                value={paymentAmount}
-                onChangeText={(text) => setPaymentAmount(formatCurrency(text))}
-              />
-
-              {/* --- AWAL TOMBOL NOMINAL CEPAT --- */}
-              <View style={styles.quickCashContainer}>
-                {[500, 1000, 2000, 5000, 10000, 20000, 50000, 100000].map((nominal) => (
-                  <TouchableOpacity
-                    key={nominal}
-                    style={styles.quickCashButton}
-                    onPress={() => setPaymentAmount(formatCurrency(nominal))}
-                  >
-                    <Text style={styles.quickCashText}>Rp {nominal.toLocaleString('id-ID')}</Text>
-                  </TouchableOpacity>
-                ))}
-                
-                {/* Bonus Fitur: Tombol Uang Pas */}
-                <TouchableOpacity
-                  style={[styles.quickCashButton, styles.exactPayButton]}
-                  onPress={() => setPaymentAmount(formatCurrency(totalPrice))}
-                >
-                  <Text style={styles.exactPayText}>Uang Pas</Text>
-                </TouchableOpacity>
-              </View>
-              {/* --- AKHIR TOMBOL NOMINAL CEPAT --- */}
+            <TextInput
+              style={styles.paymentInput}
+              keyboardType="numeric"
+              placeholder="Masukkan jumlah pembayaran..."
+              value={paymentAmount}
+              onChangeText={(text) => setPaymentAmount(formatCurrency(text))}
+            />
           </View>
+
+          {/* --- TOMBOL NOMINAL CEPAT (SUDAH DIPISAH DI BAWAH ROW SUPAYA LAYOUT GA HANCUR) --- */}
+          <View style={styles.quickCashContainer}>
+            {[500, 1000, 2000, 5000, 10000, 20000, 50000, 100000].map((nominal) => (
+              <TouchableOpacity
+                key={nominal}
+                style={styles.quickCashButton}
+                onPress={() => setPaymentAmount(formatCurrency(nominal))}
+              >
+                <Text style={styles.quickCashText}>Rp {nominal.toLocaleString('id-ID')}</Text>
+              </TouchableOpacity>
+            ))}
+            
+            {/* Tombol Uang Pas */}
+            <TouchableOpacity
+              style={[styles.quickCashButton, styles.exactPayButton]}
+              onPress={() => setPaymentAmount(formatCurrency(totalPrice))}
+            >
+              <Text style={styles.exactPayText}>Uang Pas</Text>
+            </TouchableOpacity>
+          </View>
+          {/* --- AKHIR TOMBOL NOMINAL CEPAT --- */}
 
           <View style={styles.summaryRow}>
             <Text style={styles.colLabel}>Kembalian</Text>
@@ -436,7 +436,6 @@ export default function MenuTransaksi() {
 
                 <Text style={styles.modalQtyLabel}>Masukkan jumlah</Text>
                 <View style={styles.modalQtyRow}>
-                  {/* FIX 1: Memperbaiki typo tag pembuka/penutup tombol minus di bawah ini */}
                   <TouchableOpacity
                     style={styles.qtyButton}
                     onPress={() => setQuantity(Math.max(1, quantity - 1))}>
@@ -578,16 +577,16 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center', // Mengubah posisi ke tengah vertikal
-    alignItems: 'center',       // Mengubah posisi ke tengah horizontal
+    justifyContent: 'center', 
+    alignItems: 'center',       
   },
-  modalContent: { // atau modalCard tergantung penamaan di file Anda
+  modalContent: { 
     backgroundColor: '#fff',
-    borderRadius: 16,           // Membuat sudut membulat di semua sisi (bukan cuma atas)
-    width: '85%',               // Membatasi lebar agar proporsional di HP maupun Web
-    maxWidth: 420,              // Batas maksimal lebar di layar Web agar tidak terlalu melar
-    maxHeight: '85%',           // Mencegah modal melebihi tinggi layar HP
-    padding: 20,                // Memberikan jarak dalam yang rapi
+    borderRadius: 16,           
+    width: '85%',               
+    maxWidth: 420,              
+    maxHeight: '85%',           
+    padding: 20,                
   },
   modalCard: {
     backgroundColor: '#E8D8FF',
@@ -638,7 +637,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E8D8FF',
     zIndex: 9999, 
-    // FIX 2: Mengamankan properti shadow agar terbaca silang-platform (HP & Web) dengan standar React Native shadow props
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -681,35 +679,35 @@ const styles = StyleSheet.create({
     textAlign: 'center', marginBottom: 8,
   },
   quickCashContainer: {
-  flexDirection: 'row',
-  flexWrap: 'wrap',   // Membuat tombol otomatis turun ke baris baru jika tidak muat
-  gap: 6,
-  marginTop: 10,
-  marginBottom: 15,
-},
-quickCashButton: {
-  backgroundColor: '#FFF',
-  borderWidth: 1,
-  borderColor: '#6C40C7', // Menyamakan warna tema ungu Anda
-  borderRadius: 8,
-  paddingVertical: 8,
-  paddingHorizontal: 10,
-  alignItems: 'center',
-  justifyContent: 'center',
-  minWidth: '23%', // Menghasilkan layout grid 4 kolom yang presisi di layar HP
-},
-quickCashText: {
-  fontSize: 11,
-  fontWeight: '600',
-  color: '#6C40C7',
-},
-exactPayButton: {
-  backgroundColor: '#6C40C7',
-  borderColor: '#6C40C7',
-},
-exactPayText: {
-  fontSize: 11,
-  fontWeight: '700',
-  color: '#FFF',
-},
+    flexDirection: 'row',
+    flexWrap: 'wrap',   
+    gap: 6,
+    marginTop: 10,
+    marginBottom: 15,
+  },
+  quickCashButton: {
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#6C40C7', 
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: '23%', 
+  },
+  quickCashText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6C40C7',
+  },
+  exactPayButton: {
+    backgroundColor: '#6C40C7',
+    borderColor: '#6C40C7',
+  },
+  exactPayText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFF',
+  },
 });

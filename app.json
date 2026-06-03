@@ -2,7 +2,7 @@
   "expo": {
     "name": "apriori",
     "slug": "umkm-apriori",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "apriori",
@@ -13,7 +13,7 @@
     },
     "android": {
       "package": "com.gungadithedong.umkmaprioriexpodev",
-      "versionCode": 1,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#6C40C7",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
