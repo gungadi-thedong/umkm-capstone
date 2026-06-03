@@ -10,6 +10,8 @@ import {
   Alert,
   Platform,
   Image,
+  FlatList,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -168,6 +170,8 @@ export default function MenuTransaksi() {
           id_barang: item.id_barang,
           jumlah_beli: item.quantity,
           total_beli: item.total,
+          nama_barang_nota: item.name,
+          harga_satuan_nota: item.unitPrice,
         }));
 
         const { error: detailError } = await supabase
@@ -228,7 +232,10 @@ export default function MenuTransaksi() {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}>
+      <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Menu Transaksi</Text>
@@ -255,14 +262,15 @@ export default function MenuTransaksi() {
             ) : searchResults.length === 0 ? (
               <Text style={styles.dropdownEmpty}>Barang tidak ditemukan</Text>
             ) : (
-              <ScrollView 
-                nestedScrollEnabled={true} 
+              <FlatList
+                data={searchResults}
+                keyExtractor={(item) => item.id_barang.toString()}
+                scrollEnabled={true}
+                nestedScrollEnabled={true}
                 style={{ maxHeight: 250 }}
                 keyboardShouldPersistTaps="handled"
-              >
-                {searchResults.map((item) => (
+                renderItem={({ item }) => (
                   <TouchableOpacity
-                    key={item.id_barang}
                     style={styles.dropdownItem}
                     onPress={() => handleSelectFromDropdown(item)}>
                     <View style={styles.dropdownImageBox}>
@@ -284,15 +292,18 @@ export default function MenuTransaksi() {
                       Rp {item.harga?.toLocaleString('id-ID')}
                     </Text>
                   </TouchableOpacity>
-                ))}
-              </ScrollView>
+                )}
+              />
             )}
           </View>
         )}
       </View>
 
       {/* Scrollable Content */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 30 }} 
+        showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* Cart Table */}
         <View style={styles.tableContainer}>
           {/* Table Header */}
@@ -332,14 +343,36 @@ export default function MenuTransaksi() {
 
           <View style={styles.summaryRow}>
             <Text style={styles.colLabel}>Total Bayar</Text>
-            <TextInput
-              style={styles.paymentInput}
-              placeholder="Masukkan nominal"
-              placeholderTextColor="#999"
-              value={paymentAmount}
-              onChangeText={setPaymentAmount}
-              keyboardType="numeric"
-            />
+            {/* Input Pembayaran Anda yang Sudah Ada */}
+              <TextInput
+                style={styles.paymentInput} // sesuaikan dengan nama style input Anda
+                keyboardType="numeric"
+                placeholder="Masukkan jumlah pembayaran..."
+                value={paymentAmount}
+                onChangeText={(text) => setPaymentAmount(formatCurrency(text))}
+              />
+
+              {/* --- AWAL TOMBOL NOMINAL CEPAT --- */}
+              <View style={styles.quickCashContainer}>
+                {[500, 1000, 2000, 5000, 10000, 20000, 50000, 100000].map((nominal) => (
+                  <TouchableOpacity
+                    key={nominal}
+                    style={styles.quickCashButton}
+                    onPress={() => setPaymentAmount(formatCurrency(nominal))}
+                  >
+                    <Text style={styles.quickCashText}>Rp {nominal.toLocaleString('id-ID')}</Text>
+                  </TouchableOpacity>
+                ))}
+                
+                {/* Bonus Fitur: Tombol Uang Pas */}
+                <TouchableOpacity
+                  style={[styles.quickCashButton, styles.exactPayButton]}
+                  onPress={() => setPaymentAmount(formatCurrency(totalPrice))}
+                >
+                  <Text style={styles.exactPayText}>Uang Pas</Text>
+                </TouchableOpacity>
+              </View>
+              {/* --- AKHIR TOMBOL NOMINAL CEPAT --- */}
           </View>
 
           <View style={styles.summaryRow}>
@@ -458,7 +491,8 @@ export default function MenuTransaksi() {
           </View>
         </View>
       </Modal>
-    </View>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -541,7 +575,20 @@ const styles = StyleSheet.create({
   simpanButton: { flex: 1, backgroundColor: '#4CAF50', paddingVertical: 14, borderRadius: 24, alignItems: 'center' },
   simpanButtonText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center', // Mengubah posisi ke tengah vertikal
+    alignItems: 'center',       // Mengubah posisi ke tengah horizontal
+  },
+  modalContent: { // atau modalCard tergantung penamaan di file Anda
+    backgroundColor: '#fff',
+    borderRadius: 16,           // Membuat sudut membulat di semua sisi (bukan cuma atas)
+    width: '85%',               // Membatasi lebar agar proporsional di HP maupun Web
+    maxWidth: 420,              // Batas maksimal lebar di layar Web agar tidak terlalu melar
+    maxHeight: '85%',           // Mencegah modal melebihi tinggi layar HP
+    padding: 20,                // Memberikan jarak dalam yang rapi
+  },
   modalCard: {
     backgroundColor: '#E8D8FF',
     borderRadius: 16,
@@ -633,4 +680,36 @@ const styles = StyleSheet.create({
     fontSize: 12, color: '#666',
     textAlign: 'center', marginBottom: 8,
   },
+  quickCashContainer: {
+  flexDirection: 'row',
+  flexWrap: 'wrap',   // Membuat tombol otomatis turun ke baris baru jika tidak muat
+  gap: 6,
+  marginTop: 10,
+  marginBottom: 15,
+},
+quickCashButton: {
+  backgroundColor: '#FFF',
+  borderWidth: 1,
+  borderColor: '#6C40C7', // Menyamakan warna tema ungu Anda
+  borderRadius: 8,
+  paddingVertical: 8,
+  paddingHorizontal: 10,
+  alignItems: 'center',
+  justifyContent: 'center',
+  minWidth: '23%', // Menghasilkan layout grid 4 kolom yang presisi di layar HP
+},
+quickCashText: {
+  fontSize: 11,
+  fontWeight: '600',
+  color: '#6C40C7',
+},
+exactPayButton: {
+  backgroundColor: '#6C40C7',
+  borderColor: '#6C40C7',
+},
+exactPayText: {
+  fontSize: 11,
+  fontWeight: '700',
+  color: '#FFF',
+},
 });

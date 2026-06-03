@@ -95,7 +95,7 @@ export default function RiwayatTransaksi() {
 
     const { data, error } = await supabase
       .from('detail_transaksi')
-      .select('*, barang(nama_barang, harga, gambar)')
+      .select('id_detail_transaksi, id_transaksi, id_barang, jumlah_beli, total_beli, nama_barang_nota, harga_satuan_nota, barang(gambar)')
       .in('id_transaksi', transaksiIds);
 
     if (error) {
@@ -266,10 +266,12 @@ export default function RiwayatTransaksi() {
                 {detailData?.items.map((d) => (
                   <View key={d.id_detail_transaksi} style={styles.tableRow}>
                     <Text style={[styles.tableCell, { flex: 2 }]}>
-                      {d.barang?.nama_barang} x{d.jumlah_beli}
+                      {/* JIKA BARANG DIHAPUS, ID_BARANG NULL, MAKA BACA DARI nama_barang_nota */}
+                      {d.nama_barang_nota || d.barang?.nama_barang || 'Barang Terhapus'} x{d.jumlah_beli}
                     </Text>
                     <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>
-                      {d.barang?.harga?.toLocaleString('id-ID')}
+                      {/* JIKA HARGA BARANG BERUBAH/HAPUS, NOTA LAMA TETAP AMAN DARI harga_satuan_nota */}
+                      {(d.harga_satuan_nota || d.barang?.harga || 0).toLocaleString('id-ID')}
                     </Text>
                     <Text style={[styles.tableCell, { flex: 1, textAlign: 'right' }]}>
                       {d.total_beli?.toLocaleString('id-ID')}

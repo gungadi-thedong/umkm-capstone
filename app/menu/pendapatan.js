@@ -16,6 +16,33 @@ const formatIDR = (value) => {
   return 'Rp ' + parseInt(value).toLocaleString('id-ID');
 };
 
+const getProductName = (id, itemNameMap, detailItems) => {
+  // Cek di itemNameMap terlebih dahulu
+  if (itemNameMap && itemNameMap[id]) {
+    return itemNameMap[id];
+  }
+  
+  // Jika format deleted_XXX, extract id dan cari di detail items
+  if (typeof id === 'string' && id.startsWith('deleted_')) {
+    const detailId = parseInt(id.replace('deleted_', ''));
+    const detailItem = (detailItems || []).find(d => d.id_detail_transaksi === detailId);
+    if (detailItem && detailItem.nama_barang_nota) {
+      return detailItem.nama_barang_nota;
+    }
+  }
+  
+  // Jika tidak ada, cari di detail items untuk snapshot nama
+  const detailItem = (detailItems || []).find(d => 
+    d.id_barang === id || (d.id_barang === null && `deleted_${d.id_detail_transaksi}` === id)
+  );
+  
+  if (detailItem && detailItem.nama_barang_nota) {
+    return detailItem.nama_barang_nota;
+  }
+  
+  return `Item #${id}`;
+};
+
 const MONTHS_ID = [
   'Januari','Februari','Maret','April','Mei','Juni',
   'Juli','Agustus','September','Oktober','November','Desember',
@@ -30,6 +57,7 @@ export default function Pendapatan() {
   const [aprioriResults, setAprioriResults] = useState([]);
   const [itemNameMap, setItemNameMap] = useState({});
   const [totalRevenue, setTotalRevenue] = useState(0);
+  const [detailBulanIni, setDetailBulanIni] = useState([]);
 
   useFocusEffect(
     useCallback(() => {
@@ -48,10 +76,13 @@ export default function Pendapatan() {
       const now = new Date();
       const firstDayThisMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-      const { data: detailBulanIni } = await supabase
+      const { data: detailBulanIniData } = await supabase
         .from('detail_transaksi')
-        .select('*, barang(nama_barang, gambar)')
+        .select('id_detail_transaksi, id_transaksi, id_barang, jumlah_beli, total_beli, nama_barang_nota, harga_satuan_nota, barang(nama_barang, gambar)')
         .gte('id_transaksi', 0);
+
+      const allDetailBulanIni = detailBulanIniData || [];
+      setDetailBulanIni(allDetailBulanIni);
 
       const { data: allBarang } = await supabase
         .from('barang')
@@ -63,12 +94,35 @@ export default function Pendapatan() {
         .gte('created_at', firstDayThisMonth);
 
       const thisMonthIds = new Set((transaksiThisMonth || []).map(t => t.id_transaksi));
-      const detailThisMonth = (detailBulanIni || []).filter(d => thisMonthIds.has(d.id_transaksi));
+      
+      // PERBAIKAN: Saring & Inject ID Bayangan string unik agar barang terhapus diproses mandiri di algoritma
+      const detailThisMonth = allDetailBulanIni
+        .filter(d => thisMonthIds.has(d.id_transaksi))
+        .map(d => {
+          if (!d.id_barang) {
+            return {
+              ...d,
+              id_barang: `deleted_${d.id_detail_transaksi}`
+            };
+          }
+          return d;
+        });
 
       const nameMap = {};
       (allBarang || []).forEach(b => {
         nameMap[b.id_barang] = b.nama_barang;
       });
+
+      // Prioritaskan snapshot nota untuk barang yang sudah dihapus
+      allDetailBulanIni.forEach(d => {
+        if (!d.id_barang && d.nama_barang_nota) {
+          nameMap[`deleted_${d.id_detail_transaksi}`] = d.nama_barang_nota;
+        } 
+        else if (d.id_barang && !nameMap[d.id_barang] && d.nama_barang_nota) {
+          nameMap[d.id_barang] = d.nama_barang_nota;
+        }
+      });
+
       setItemNameMap(nameMap);
 
       const monthlyData = getMonthlyComparison(transaksiData || []);
@@ -83,7 +137,10 @@ export default function Pendapatan() {
       const allSoldThisMonth = getTopItems(detailThisMonth, 999);
       setBottomItems(allSoldThisMonth.slice(-10).reverse());
 
-      const soldIds = detailThisMonth.map(d => d.id_barang);
+      // Filter soldIds hanya bertipe angka murni (karena allBarang isinya ID angka asli)
+      const soldIds = detailThisMonth
+        .map(d => d.id_barang)
+        .filter(id => typeof id === 'number');
       const unsold = getUnsoldItems(allBarang || [], soldIds);
       setUnsoldItems(unsold);
 
@@ -106,12 +163,10 @@ export default function Pendapatan() {
     }
   };
 
-  // 2. FUNGSI SAKTI UNTUK GENERATE DAN DOWNLOAD PDF DI HP
   const handleDownloadPDF = async () => {
     const currentMonthName = MONTHS_ID[new Date().getMonth()];
     const currentYear = new Date().getFullYear();
 
-    // Mapping Data Looping Supabase ke dalam bentuk baris Tabel HTML
     const topItemsRows = topItems.map((item, index) => `
       <tr style="border-bottom: 1px solid #ddd;">
         <td style="padding: 10px; text-align: center;"><b>${index + 1}</b></td>
@@ -131,8 +186,10 @@ export default function Pendapatan() {
     const aprioriRows = aprioriResults.length === 0 
       ? `<tr><td colspan="3" style="padding: 15px; text-align: center; color: #999;">Belum cukup data transaksi untuk pola bersamaan.</td></tr>`
       : aprioriResults.map((result, index) => {
-          const comboNames = result.items.map(id => itemNameMap[id] || `Item #${id}`).join(' <b>+</b> ');
-          return `
+        const comboNames = result.items.map(id => { 
+          return itemNameMap[id] || `Item #${id}`;
+        }).join(' <b>+</b> ');          
+            return `
             <tr style="border-bottom: 1px solid #ddd;">
               <td style="padding: 10px; text-align: center;"><b>${index + 1}</b></td>
               <td style="padding: 10px;">${comboNames}</td>
@@ -141,7 +198,6 @@ export default function Pendapatan() {
           `;
         }).join('');
 
-    // Kode Struktur HTML Laporan Remade (Ramah Orang Tua Usia 40+)
     const htmlContent = `
         <html>
           <head>
@@ -199,44 +255,28 @@ export default function Pendapatan() {
         </html>
       `;
     try {
-      // 🌟 TRIK KHUSUS TESTING DI PC (BROWSER) 🌟
       if (Platform.OS === 'web') {
-      //   // Opsi A: Langsung buka di Tab Baru (Paling direkomendasikan buat testing cepet)
-      //   const newWindow = window.open();
-      //   if (newWindow) {
-      //     newWindow.document.write(htmlContent);
-      //     newWindow.document.close();
-      //   }
-      //   return; // Stop di sini, jangan jalankan fungsi HP
-
-        // 🌟 TRIK KHUSUS TESTING DI PC (BROWSER) - SEKARANG DOWNLOAD .PDF ASLI 🌟
-        // 1. Buat elemen bungkus HTML sementara di browser
         const element = document.createElement('div');
         element.innerHTML = htmlContent;
 
-        // 2. Load script html2pdf secara dinamis dari internet
         const script = document.createElement('script');
         script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
         
         script.onload = () => {
-          // 3. Konfigurasi download PDF-nya
           const options = {
             margin:       0.5,
             filename:     `Laporan-Penjualan-${currentMonthName}-${currentYear}.pdf`,
             image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2 }, // Biar teks tajam pas di-zoom
+            html2canvas:  { scale: 2 },
             jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
           };
-
-          // 4. Eksekusi download PDF langsung di PC tanpa pop-up print!
           window.html2pdf().set(options).from(element).save();
         };
 
         document.head.appendChild(script);
-        return; // Stop, jangan jalankan fungsi internal HP
+        return;
       }
 
-      // 📱 PROSES UNTUK DI HP ASLI (Gak bakal terganggu)
       const { uri } = await Print.printToFileAsync({ html: htmlContent });
       await Sharing.shareAsync(uri, { dialogTitle: 'Simpan Laporan PDF' });
     } catch (error) {
@@ -265,12 +305,10 @@ export default function Pendapatan() {
         <Text style={styles.headerLabel}>TOTAL PENDAPATAN BULAN INI</Text>
         <Text style={styles.headerAmount}>{formatIDR(monthly?.thisMonthRevenue)}</Text>
 
-        {/* 3. INI TOMBOL DOWNLOAD BARU UNTUK VERSI MOBILE */}
         <TouchableOpacity style={styles.downloadButton} onPress={handleDownloadPDF}>
           <Text style={styles.downloadButtonText}>📥 Download Laporan (PDF)</Text>
         </TouchableOpacity>
 
-        {/* Perbandingan bulan lalu */}
         {monthly?.lastMonthRevenue > 0 && (
           <View style={styles.compareRow}>
             <Text style={styles.compareLabel}>vs {lastMonthName}:</Text>
@@ -376,7 +414,7 @@ export default function Pendapatan() {
                   <React.Fragment key={id}>
                     <View style={styles.aprioriItemChip}>
                       <Text style={styles.aprioriItemText} numberOfLines={1}>
-                        {itemNameMap[id] || `Item #${id}`}
+                        {getProductName(id, itemNameMap, detailBulanIni)}
                       </Text>
                     </View>
                     {i < result.items.length - 1 && (
@@ -406,7 +444,6 @@ const styles = StyleSheet.create({
   },
   loadingText: { marginTop: 12, color: '#666', fontSize: 14 },
 
-  // STYLE BARU UNTUK BUTTON DOWNLOAD PDF
   downloadButton: {
     backgroundColor: '#69F0AE',
     paddingVertical: 12,
@@ -425,7 +462,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
-  // Header Card
   headerCard: {
     backgroundColor: '#6C40C7',
     padding: 24,
@@ -455,7 +491,6 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: 12, color: 'rgba(255,255,255,0.7)' },
   totalValue: { fontSize: 13, fontWeight: '700', color: '#fff' },
 
-  // Last month card
   lastMonthCard: {
     backgroundColor: '#fff',
     marginHorizontal: 16, marginBottom: 12,
@@ -466,7 +501,6 @@ const styles = StyleSheet.create({
   lastMonthLabel: { fontSize: 13, color: '#666' },
   lastMonthAmount: { fontSize: 16, fontWeight: '700', color: '#6C40C7' },
 
-  // Sections
   section: {
     backgroundColor: '#fff',
     marginHorizontal: 16, marginBottom: 12,
@@ -481,7 +515,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8, lineHeight: 20,
   },
 
-  // Rank rows
   rankRow: {
     flexDirection: 'row', alignItems: 'center',
     paddingVertical: 8, gap: 12,
@@ -505,7 +538,6 @@ const styles = StyleSheet.create({
   rankQty: { fontSize: 12, fontWeight: '700', color: '#6C40C7' },
   rankQtyLow: { fontSize: 12, fontWeight: '700', color: '#FF9800' },
 
-  // Unsold
   unsoldRow: {
     flexDirection: 'row', justifyContent: 'space-between',
     paddingVertical: 8,
@@ -514,7 +546,6 @@ const styles = StyleSheet.create({
   unsoldName: { flex: 1, fontSize: 13, color: '#666' },
   unsoldStok: { fontSize: 12, color: '#999' },
 
-  // Apriori
   aprioriDesc: {
     fontSize: 12, color: '#999', marginBottom: 12, marginTop: -8,
   },

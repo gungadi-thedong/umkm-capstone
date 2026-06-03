@@ -260,10 +260,11 @@ export default function AddBarang() {
         <Text style={styles.headerTitle}>Add Product</Text>
       </View>
 
-      <ScrollView
-        style={styles.content}
+      <ScrollView 
+        style={styles.content} 
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 30 }}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}>
+        keyboardShouldPersistTaps="handled">
         {/* Form Section */}
         <View style={styles.formSection}>
           {/* Product Name */}
@@ -587,14 +588,16 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center', // Mengubah posisi ke tengah vertikal
+    alignItems: 'center',       // Mengubah posisi ke tengah horizontal
   },
-  modalContent: {
+  modalContent: { // atau modalCard tergantung penamaan di file Anda
     backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '70%',
-    paddingTop: 0,
+    borderRadius: 16,           // Membuat sudut membulat di semua sisi (bukan cuma atas)
+    width: '85%',               // Membatasi lebar agar proporsional di HP maupun Web
+    maxWidth: 420,              // Batas maksimal lebar di layar Web agar tidak terlalu melar
+    maxHeight: '85%',           // Mencegah modal melebihi tinggi layar HP
+    padding: 20,                // Memberikan jarak dalam yang rapi
   },
   modalHeader: {
     flexDirection: 'row',

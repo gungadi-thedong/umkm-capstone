@@ -14,6 +14,8 @@ const MENU_ITEMS = [
   { label: 'Keranjang', route: '/menu/transaksi', icon: '🛒' },
   { label: 'Transaksi', route: '/menu/menu-transaksi', icon: '💳' },
   { label: 'Pendapatan', route: '/menu/pendapatan', icon: '📊' },
+  { label: 'Pendapatan Harian', route: '/menu/pendapatan-harian', icon: '📅' },
+  { label: 'Kategori', route: '/menu/kategori', icon: '🏷️' }
 ];
 
 export default function MenuLayout() {
@@ -181,6 +183,8 @@ export default function MenuLayout() {
         <Stack.Screen name="transaksi" options={{ title: 'Keranjang' }} />
         <Stack.Screen name="menu-transaksi" options={{ title: 'Riwayat Transaksi' }} />
         <Stack.Screen name="pendapatan" options={{ title: 'Pendapatan' }} />
+        <Stack.Screen name="pendapatan-harian" options={{ title: 'Pendapatan Harian' }} />
+        <Stack.Screen name="kategori" options={{ title: 'Kategori Barang' }} />
       </Stack>
 
       {/* Burger Menu Modal */}
@@ -279,5 +283,5 @@ const styles = StyleSheet.create({
   mainMenuItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
   mainMenuText: { fontSize: 15, color: '#333', fontWeight: '500' },
   logoutButton: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
-  logoutButtonText: { fontSize: 15, color: '#FF3B30', fontWeight: '700' }
+  logoutButtonText: { fontSize: 15, color: '#FF3B30', fontWeight: '700' },
 });

@@ -20,14 +20,6 @@ export default function DetailBarang() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.headerContainer}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.replace('/menu/koleksi-barang')}>
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Detail Barang</Text>
-        <View style={{ width: 40 }} />
-      </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Detail Card */}
@@ -94,15 +86,6 @@ export default function DetailBarang() {
                 })
               }>
               <Text style={styles.cekBarangText}>Cek Barang</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.transaksiButton}
-              onPress={() => {
-                // TODO: Navigate to transaction/sales screen
-                alert('Fitur transaksi akan datang');
-              }}>
-              <Text style={styles.transaksiText}>Transaksi</Text>
             </TouchableOpacity>
           </View>
         </View>
